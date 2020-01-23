@@ -1,0 +1,67 @@
+domain SocialNetwork 
+{
+  SocialNetwork ::= new (id: String).
+  User ::= new (id: Integer, name: String).
+  Comments ::= new (id: Integer, timestamp: Integer, content: String, creator: Integer, parent: Integer, post: Integer).
+  Posts ::= new (id: Integer, timestamp: String, content: String, submitter: Integer).
+  
+  Submitter ::= new (postId: Integer, userId: Integer).
+  Submissions ::= new (userId: Integer, postId: Integer).
+  Friend ::= new (src: Integer, dst: Integer).
+
+  LikedBy ::= new (srcComment: String, dstUser: Integer).
+  Likes ::= new (srcUser: Integer, dstComment: Integer). 
+  
+  LikesSameComment ::= new (comment: Integer, p1: Integer, p2: Integer).
+  
+  SCC ::= new (comment: Integer, lowestPerson: Integer, value: Integer).
+
+  LowestFriend ::= new (lowestPerson: Integer, comment: Integer).
+ 
+  SCCScore ::= (comment: Integer, score: Integer).
+  
+  // The score of a post based on 10x the number of comments it contains
+  PostCommentScore ::= new (id: Integer, value: Integer).
+  
+  // The score of a comment based on the number of likes it has
+  CommentLikeScore ::= new (commentId: Integer, postId: Integer, value: Integer).
+  
+  // The score of a post based on the number of likes its comments have
+  PostLikeScore ::= new (id: Integer, value: Integer).
+  
+  // The total score of a post based on 10x number of its comments + the total number of likes those comments have
+  PostTotalScore ::= (id: Integer, value: Integer).
+
+  Test ::= new (val: Integer).
+
+  //// Q2: Most Influential Comment (MIC)
+ 
+  // MIC 1. Compute transitive closure over friends who like the same comment
+  LikesSameComment(comment, u1, u1) :- Likes(u1, comment).
+  LikesSameComment(comment, u1, u2) :- Likes(u1, comment), Likes(u2, comment), Friend(u1, u2).
+  LikesSameComment(comment, u1, u3) :- LikesSameComment(comment, u1, u2), LikesSameComment(comment, u2, u3).
+  
+  // MIC 2. Compute the lowest id among friends who like the same comment
+  //LowestFriend(lowest, x.comment) :- x is LikesSameComment(_,_,_), lowest = minAll(0, { k | LikesSameComment(_, x.p1, k)}), lowest: Integer.
+
+  //SCC(x.comment, x.lowestPerson, total) :- x is LowestFriend(_, _), c = count({ y | y is LikesSameComment(x.comment, x.lowestPerson, _)}), total = c * c .
+
+  // MIC 4. For each comment, compute the sum of scores of its SCCs
+  //SCCScore(c.id, score) :- c is Comments(_, _, _, _, _, _), score = sum(0, { k | SCC(c.id, _, k)}), score: Integer.
+
+
+  //// Q1: Most Controversial Post (MCP)
+
+  // MCP 1. Compute the score of each post by counting the number of comments on that post and multiplying by 10
+  //PostCommentScore(p.id, val) :- p is Posts(_, _, _, _), c = count({ x | x is Comments(_, _, _, _, _, p.id)}), val = c * 10 .
+
+  // MCP 2. Compute the score of each comment by counting the number of Likes that comment has									 
+  //CommentLikeScore(c.id, c.post, value) :- c is Comments(_, _, _, _, _, _), value = count({x | x is Likes(_, c.id)}).
+  
+  // MCP 3. For each Post, compute its score based on how many people like comments belonging to that Post
+  //PostLikeScore(p.id, val) :- p is Posts(_, _, _, _), val = sum(0, { k | CommentLikeScore(_, p.id, k)}), val: Integer.
+
+  // MCP 4. For each Post, compute its total score by adding its PostCommentScore and PostLikeScore.
+  //PostTotalScore(pcs.id, val) :- pcs is PostCommentScore(_, _), pls is PostLikeScore(pcs.id, _), val = pcs.value + pls.value.
+
+}
