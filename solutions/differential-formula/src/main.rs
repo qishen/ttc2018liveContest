@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use differential_formula::engine::*;
 use differential_formula::term::*;
+use differential_formula::module::*;
 
 
 fn main() {
@@ -27,11 +28,10 @@ fn main() {
     let content = fs::read_to_string(domain_path).unwrap();
 
     let mut engine = DDEngine::new();
-    let env = DDEngine::parse_string(content);
-    engine.install(env);
+    engine.install(content);
 
-    // Each session has one specific domain attached and model is optional.
-    let mut session = engine.create_session("SocialNetwork", None);
+    let empty_model = engine.create_empty_model("m", "SocialNetwork");
+    let mut session = Session::new(empty_model, &engine);
 
     println!("{:?};{:?};{};{};0;\"Initialization\";\"Time\";{}", tool, query, change_set, run_index, timer.elapsed().as_millis());
     timer = std::time::Instant::now();
@@ -67,7 +67,8 @@ fn main() {
         term_collection.push(strings_to_user(user, &session));
     }
 
-    session.add_terms(term_collection);
+    let terms: Vec<Arc<Term>> = term_collection.into_iter().map(|x| Arc::new(x)).collect();
+    session.add_terms(terms);
 
     println!("Execution time: {}", timer.elapsed().as_millis());
 
@@ -91,7 +92,8 @@ fn main() {
             }
         }
 
-        session.add_terms(term_change_collection);
+        let terms: Vec<Arc<Term>> = term_change_collection.into_iter().map(|x| Arc::new(x)).collect();
+        session.add_terms(terms);
     }
 }
 
@@ -117,11 +119,12 @@ fn load_data(filename: &str) -> Vec<Vec<String>> {
             data.push(text);
         }
     }
+
     data
 }
 
 
-fn strings_to_comm(comm: Vec<String>, session: &Session) -> Arc<Term> {
+fn strings_to_comm<F: FormulaModule>(comm: Vec<String>, session: &Session<F>) -> Term {
     let mut iter = comm.into_iter();
     let id = iter.next().unwrap();
     let ts = iter.next().unwrap();
@@ -137,28 +140,28 @@ fn strings_to_comm(comm: Vec<String>, session: &Session) -> Arc<Term> {
     let post = iter.next().unwrap();
 
     let comment_str = format!("Comments({:?}, {:?}, {:?}, {:?}, {:?}, {:?})", id, ts, content, creator, parent, post);
-    session.parse_term_str(&comment_str[..]).unwrap()
+    session.create_term(&comment_str[..]).unwrap()
 }
 
-fn strings_to_know(know: Vec<String>, session: &Session) -> Arc<Term> {
+fn strings_to_know<F: FormulaModule>(know: Vec<String>, session: &Session<F>) -> Term {
     let mut iter = know.into_iter();
     let person1 = iter.next().unwrap();
     let person2 = iter.next().unwrap();
     
     let friend_str = format!("Friend({:?}, {:?})", person1, person2);
-    session.parse_term_str(&friend_str[..]).unwrap()
+    session.create_term(&friend_str[..]).unwrap()
 }
 
-fn strings_to_like(like: Vec<String>, session: &Session) -> Arc<Term> {
+fn strings_to_like<F: FormulaModule>(like: Vec<String>, session: &Session<F>) -> Term {
     let mut iter = like.into_iter();
     let person = iter.next().unwrap();
     let comment = iter.next().unwrap();
     
     let likes_str = format!("Likes({:?}, {:?})", person, comment);
-    session.parse_term_str(&likes_str[..]).unwrap()
+    session.create_term(&likes_str[..]).unwrap()
 }
 
-fn strings_to_post(post: Vec<String>, session: &Session) -> Arc<Term> {
+fn strings_to_post<F: FormulaModule>(post: Vec<String>, session: &Session<F>) -> Term {
     let mut iter = post.into_iter();
     let id = iter.next().unwrap();
     let ts = iter.next().unwrap();
@@ -171,14 +174,14 @@ fn strings_to_post(post: Vec<String>, session: &Session) -> Arc<Term> {
     let creator = iter.next().unwrap();
 
     let post_str = format!("Posts({:?}, {:?}, {:?}, {:?})", id, ts, content, creator);
-    session.parse_term_str(&post_str[..]).unwrap()
+    session.create_term(&post_str[..]).unwrap()
 }
 
-fn strings_to_user(user: Vec<String>, session: &Session) -> Arc<Term> {
+fn strings_to_user<F: FormulaModule>(user: Vec<String>, session: &Session<F>) -> Term {
     let mut iter = user.into_iter();
     let person = iter.next().unwrap();
     let name = iter.next().unwrap();
 
     let user_str = format!("User({:?}, {:?})", person, name);
-    session.parse_term_str(&user_str[..]).unwrap()
+    session.create_term(&user_str[..]).unwrap()
 }
