@@ -60,7 +60,7 @@ By default, Java tools run with a heap size - both minimum (`Xms`) and maximum (
 This can be replaced with the following script (using [`ag`](https://geoff.greer.fm/ag/)).
 
 ```bash
-ag Xms6G -l | xargs sed -i 's/Xms6G/Xms200G/g'
+ag Xms1G -l | xargs sed -i 's/Xms1G/Xms200G/g'
 ag Xmx6G -l | xargs sed -i 's/Xmx6G/Xmx200G/g'
 ```
 
