@@ -1,0 +1,52 @@
+import graph as graph
+
+// `id` must be u64 because some ids use very big numbers.
+input relation User(id: u64, name: string)
+input relation Comments(id: u64, timestamp: string, content: string, creator: u64, parent: u64, post: u64)
+input relation Posts(id: u64, timestamp: string, content: string, submitter: u64)
+
+input relation Submitter(postid: u64, userid: u64)
+input relation Submissions(userid: u64, postid: u64)
+input relation Friend(src: u64, dst: u64)
+
+input relation LikedBy(srcComment: string, dstUser: u64)
+input relation Likes(srcUser: u64, dstComment: u64)
+
+// Output relation for Q1.
+// The score of a post based on 10x the number of comments it contains
+output relation PostCommentScore(id: u64, value: u64)
+// The score of a comment based on the number of likes it has
+output relation CommentLikeScore(commentId: u64, value: u64)
+// The score of a post based on the number of likes its comments have
+output relation PostLikeScore(id: u64, value: u64)
+// The total score of a post based on 10x number of its comments + the total number of likes those comments have
+output relation PostTotalScore(score: u64, postId: u64)
+output relation PostTotalScoreTimestamp(score: u64, timestamp: string, postId: u64)
+output relation Top3PostScore(first: u64, second: u64, third: u64)
+
+
+extern function top_three(g: Group<'K, 'V>): ('V, 'V, 'V)
+
+// Q1: The top 3 posts with the highest score based the number of comments and likes and must be sorted by timestamp.
+// Each comment gives its post 10 points. What if a post doesn't have comments? Almost impossible and it's ok to skip this post.
+PostCommentScore(pid, score) :- Comments(_,_,_,_,_,pid), var c = Aggregate((pid), group_count(pid)), var score = c * 10.
+// Each like on the comment adds one point.
+// Remove pid from relation `CommentLikeScore` because otherwise we have to define a customized aggregate function that not only return
+// the score but also the associated pid. The default aggregation function `group_count` put other variables out of scope.
+// CommentLikeScore(cid, pid, score) :- Comments(cid,_,_,_,_,pid), Likes(user, cid), var score = Aggregate((cid), group_count(cid)).
+CommentLikeScore(cid, score) :- Likes(_, cid), var score = Aggregate((cid), group_count(cid)).
+// How many likes a post receives in its comments including the comments on comments.
+PostLikeScore(pid, score) :- Comments(cid,_,_,_,_,pid), CommentLikeScore(cid, val), var score = Aggregate((pid), group_sum(val)).
+
+// Combine two scores together based on the post id or only return the PostCommentScore if the post has no likes.
+PostTotalScore(pid, score) :- PostCommentScore(pid, s1), PostLikeScore(pid, s2), var score = s1 + s2. 
+PostTotalScore(pid, score) :- PostCommentScore(pid, score), not PostLikeScore(pid, _). 
+
+// Sort by score and then timestamp.
+PostTotalScoreTimestamp(score, timestamp, post) :- PostTotalScore(post, score), Posts(post, timestamp, _, _).
+
+Top3PostScore(first, second, third) :- PostTotalScoreTimestamp(score, timestamp, post),
+    Posts(post, timestamp, _, _),
+    var aggregation = Aggregate((), top_three(post)),
+    (var first, var second, var third) = aggregation
+    .
